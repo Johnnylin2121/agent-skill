@@ -5,6 +5,11 @@ description: A股每日复盘工作流——涵盖盘前观察清单制定、盘
 
 # 每日复盘工作流
 
+> **平台说明**：本 skill 使用 `{VAULT_PATH}` 作为 Obsidian Vault 根目录占位符。
+> 请根据你的实际环境替换：
+> - Windows 例：`D:\OneDrive\ObsidianVault`
+> - macOS 例：`~/Library/CloudStorage/OneDrive-个人/ObsidianVault`
+
 ## 核心原则
 
 1. **预期-验证闭环**：每日复盘提出假设，次日早盘验证，形成闭环
