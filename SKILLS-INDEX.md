@@ -2,29 +2,29 @@
 
 ## 交易体系
 
-| Skill | 说明 | 平台 |
-|-------|------|------|
-| trading-每日复盘 | A股每日复盘全流程 | 均需适配 |
-| trading-价值投资功法 | 价值投资完整体系 | 通用 |
-| trading-contradiction-check | 复盘矛盾自动检测 | 均需适配 |
-| trading-policy-impact | 政策/事件影响链路分析 | 通用 |
-| trading-stock-scan | 个股深度扫描 | 通用 |
+| Skill | 说明 |
+|-------|------|
+| trading-每日复盘 | A股每日复盘全流程 |
+| trading-价值投资功法 | 价值投资完整体系 |
+| trading-contradiction-check | 复盘矛盾自动检测 |
+| trading-policy-impact | 政策/事件影响链路分析 |
+| trading-stock-scan | 个股深度扫描 |
 
 ## 效率工具
 
-| Skill | 说明 | 平台 |
-|-------|------|------|
-| obsidian-vault-sync | 自动同步文件到 Obsidian | 均需适配 |
-| obsidian-reconcile | Obsidian 矛盾信息检测 | 通用 |
-| notion-api | Notion API 集成 | 均需适配 |
+| Skill | 说明 |
+|-------|------|
+| obsidian-vault-sync | 自动同步文件到 Obsidian |
+| obsidian-reconcile | Obsidian 矛盾信息检测 |
+| notion-api | Notion API 集成 |
 
 ## Amazon 运营
 
-| Skill | 说明 | 平台 |
-|-------|------|------|
-| amazon-ad-analysis | 广告分析与经营分析 | 通用 |
-| amazon-listing | Listing 优化 | 通用 |
-| amazon-product-selection | 选品分析 | 通用 |
+| Skill | 说明 |
+|-------|------|
+| amazon-ad-analysis | 广告分析与经营分析 |
+| amazon-listing | Listing 优化 |
+| amazon-product-selection | 选品分析 |
 
 ## 通用工具
 
