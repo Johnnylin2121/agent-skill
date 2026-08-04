@@ -1,7 +1,8 @@
 ---
 name: skill-sync
 description: >
-  管理本地 skill 与 GitHub 远程仓库的同步。自动检测系统环境（Windows/macOS）并选择对应分支。
+  管理本地 skill 与 GitHub 远程仓库的同步。
+  所有平台共用 `main` 分支，平台差异在 skill 内部通过运行时检测处理。
   当用户说"同步 skill"、"推送到 GitHub"、"skill 更新了吗"、"检查 skill 版本"、
   "skill-sync"时使用。
 ---
@@ -9,46 +10,22 @@ description: >
 # Skill Sync
 
 管理 `.mimocode/skills/` 目录与 GitHub 远程仓库 `Johnnylin2121/mimocode-skill` 的同步。
-**自动检测当前系统，选择正确的平台分支。**
+**所有平台共用 `main` 分支。**
 
 **远程仓库**：`git@github.com:Johnnylin2121/mimocode-skill.git`
 
 ---
 
-## 系统检测（每次执行前必须执行）
+## 前置检查（每次执行前必须执行）
 
-### Step 0：检测 OS 并确定分支
-
-agent 通过以下方式检测当前系统：
-
-```javascript
-const os = process.platform;
-// 'win32' → Windows, 'darwin' → macOS
-```
-
-**分支映射**：
-
-| 系统 | 分支 | 仓库目录 |
-|------|------|---------|
-| `process.platform === 'win32'` | `adapt/win` | `$env:USERPROFILE\.mimocode\skills` |
-| `process.platform === 'darwin'` | `adapt/mac` | `$HOME/.mimocode/skills` |
-| 其他 | 终止并提示"不支持的操作系统" | — |
-
-### Step 0.5：确认当前分支（安全门禁）
+### Step 0：确认当前分支
 
 ```bash
 cd <repoDir>
 git branch --show-current
 ```
 
-**安全规则**：
-
-- 若当前分支 **不等于** 检测到的分支 → **终止并报错**：
-  > "当前在 `[实际分支]` 分支，但系统为 `[OS]`，预期分支为 `[预期分支]`。
-  > 请先切换到正确分支：`git checkout [预期分支]`"
-  > 如果 `[实际分支]` 是 `master`，提醒用户 `master` 已废弃，内容已迁移到 `adapt/mac`
-
-- 若当前分支等于检测到的分支 → 继续 Step 1
+**规则**：必须为 `main` 分支。如果不是，切换到 `main` 再继续。
 
 ---
 
@@ -58,8 +35,8 @@ git branch --show-current
 
 ```bash
 git status
-git log origin/<branch>..HEAD --oneline   # 本地有但远程没有的提交
-git log HEAD..origin/<branch> --oneline   # 远程有但本地没有的提交
+git log origin/main..HEAD --oneline   # 本地有但远程没有的提交
+git log HEAD..origin/main --oneline   # 远程有但本地没有的提交
 ```
 
 向用户报告：
@@ -70,7 +47,7 @@ git log HEAD..origin/<branch> --oneline   # 远程有但本地没有的提交
 ### Step 2：处理分歧（如有）
 
 如果远程领先本地（`git pull` 会产生合并）：
-- 先执行 `git pull origin <branch>`（使用检测到的分支名）
+- 先执行 `git pull origin main`
 - 如有冲突，列出冲突文件并提醒用户手动解决
 - 如无冲突，自动完成合并
 
@@ -118,12 +95,12 @@ git commit -m "<自动生成的提交信息>"
 ### Step 4：推送到远程
 
 ```bash
-git push origin <branch>
+git push origin main
 ```
 
 若 push 被拒绝：
-- 执行 `git pull origin <branch>` 合并远程更改
-- 再次 `git push origin <branch>`
+- 执行 `git pull origin main` 合并远程更改
+- 再次 `git push origin main`
 - 若仍有冲突，提示用户手动解决
 
 ### Step 5：确认结果
@@ -150,7 +127,7 @@ git push origin <branch>
 # 示例：只同步 amazon-listing
 git add amazon-listing/
 git commit -m "feat: update amazon-listing - <简述>"
-git push origin <branch>
+git push origin main
 ```
 
 ---
@@ -176,14 +153,13 @@ git push origin <branch>
 - 待同步：Y 个（有本地变更）
 - 需推送：Z 个（本地领先远程）
 - 需拉取：W 个（远程领先本地）
-- 当前分支：`adapt/win`（Windows）或 `adapt/mac`（macOS）
-- 系统：Windows / macOS
+- 当前分支：`main`
 ```
 
 **判断逻辑**：
 - 有本地变更（`git status` 非空）→ 🟡 待同步
-- 本地领先远程（`git log origin/<branch>..HEAD` 有提交）→ 🔴 需推送
-- 远程领先本地（`git log HEAD..origin/<branch>` 有提交）→ 🔵 需拉取
+- 本地领先远程（`git log origin/main..HEAD` 有提交）→ 🔴 需推送
+- 远程领先本地（`git log HEAD..origin/main` 有提交）→ 🔵 需拉取
 - 都为空 → 🟢 同步
 
 ---
@@ -191,7 +167,7 @@ git push origin <branch>
 ## 快捷模式
 
 用户说"同步 skill"且无其他上下文时：
-1. 执行 Step 0（系统检测 + 分支确认）
+1. 执行 Step 0（确认分支）
 2. 执行 Step 1（检测差异）
 3. 若有远程分歧 → Step 2
 4. 若有本地更改 → Step 3
@@ -200,27 +176,11 @@ git push origin <branch>
 
 ---
 
-## 跨平台工作流（重要）
+## 禁止的操作
 
-当需要在 Mac 和 Windows 之间同步 skill 更新时，**不要直接跨分支推送**。
-
-### 正确的流程
-
-```
-[Windows 机器] adapt/win 上修改 → 推送
-        ↓
-[任一机器] 将通用功能 cherry-pick 到 main → 推送
-        ↓
-[macOS 机器] 从 main cherry-pick 到 adapt/mac → 推送
-```
-
-### 禁止的操作
-
-- ❌ 禁止在 Windows 上推送 `adapt/mac` 分支
-- ❌ 禁止在 macOS 上推送 `adapt/win` 分支
-- ❌ 禁止直接向 `main` 推送（除非紧急且人工确认）
 - ❌ 禁止使用 `git push --force`
 - ❌ 禁止在 skill 运行时自动提交并推送
+- ❌ 禁止将 `__pycache__`、`.DS_Store`、`Thumbs.db` 等缓存文件提交
 
 ---
 
@@ -228,6 +188,6 @@ git push origin <branch>
 
 - 不主动删除远程分支或强制推送
 - push 被拒绝时先 pull 再 push，不使用 `--force`
-- 每次操作前先确认当前分支与系统匹配
+- 每次操作前先确认当前在 `main` 分支
 - 选择性同步时，只提交指定目录的文件
 - 自动生成提交信息时，优先使用具体 skill 名称而非通用格式
