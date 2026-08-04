@@ -83,7 +83,7 @@ User provides 1–5 Amazon competitor ASINs or full product URLs (all same marke
 
 ```powershell
 # If playwright not installed:
-npm init -y  (in a temp dir like C:\Users\johnn\AppData\Local\Temp\amz-scrape)
+npm init -y  (in a temp dir like {TEMP}/amz-scrape)
 npm install playwright
 npx playwright install chromium
 
@@ -136,7 +136,7 @@ After obtaining all competitor texts, perform analysis:
 
 ### Output (Section 1 of the .md file)
 
-Write to `C:\Users\johnn\Desktop\<product-name>-listing.md` (ask user for product name for filename or use a generic placeholder).
+Write to `~/Desktop/<product-name>-listing.md` (ask user for product name for filename or use a generic placeholder).
 
 Format:
 

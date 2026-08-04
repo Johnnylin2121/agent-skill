@@ -187,7 +187,7 @@
 **产品**：atolla USB 3.0 Hub 7 Puertos（铝合金、滑轨安装、外置电源）
 **站点**：Amazon.com.mx（墨西哥站，西班牙语）
 **竞品**：5 个同品类 listing
-**输出文件**：`C:\Users\johnn\Desktop\USB-Hub-listing.md`
+**输出文件**：`~/Desktop/USB-Hub-listing.md`
 
 **最终埋词覆盖**：
 - 10 个核心关键词中 9 个在五点出现，10 个在标题或五点中覆盖

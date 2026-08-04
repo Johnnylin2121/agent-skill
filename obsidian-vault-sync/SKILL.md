@@ -146,7 +146,7 @@ related: [关联主题]
 
 ## 示例
 
-用户说："把这个文件添加到我的Obsidian知识库：C:\Users\johnn\Desktop\2026年7月21日财经早餐.md"
+用户说："把这个文件添加到我的Obsidian知识库：~/Desktop/2026年7月21日财经早餐.md"
 
 操作：
 1. 读取文件内容
