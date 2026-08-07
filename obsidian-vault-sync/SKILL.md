@@ -19,6 +19,19 @@ description: 自动将文件同步到Obsidian知识库，包括复制文件、�
 
 ## 工作流程
 
+### Step 0: 领域路由（新增）
+
+根据源文件所在目录，判定目标知识网络：
+
+| 源文件位置 | 目标知识网络 | 实体/主题写入位置 | 索引 |
+|-----------|-------------|------------------|------|
+| `交易体系/`、`附件/1.Mr.dang`、`研究/` | 交易体系 | `wiki/entities/`、`wiki/topics/` | `wiki/index.md` |
+| `工作/` | 工作领域 | `wiki-work/entities/`、`wiki-work/topics/` | `wiki-work/index.md` |
+| `读书/` | 读书领域 | `wiki-reading/entities/`、`wiki-reading/topics/` | `wiki-reading/index.md` |
+| 不确定 | 询问用户 | — | — |
+
+**规则：绝不跨域写入**。交易资料只写 `wiki/`，工作资料只写 `wiki-work/`，读书资料只写 `wiki-reading/`。`related:` 中的 `[[wikilink]]` 可跨域引用。
+
 ### Step 1: 确定源文件和目标位置
 
 读取用户提供的文件路径，根据文件名判断类型：
@@ -27,7 +40,7 @@ description: 自动将文件同步到Obsidian知识库，包括复制文件、�
 |-----------|---------|
 | `*财经早读*` 或 `*财经早餐*` | `交易体系/财经早读/` + `附件/2.财经早读/` + `wiki/sources/` |
 | `*复盘*` | `交易体系/复盘/` |
-| 其他 | 询问用户目标位置 |
+| 其他 | 按 Step 0 领域路由，或询问用户目标位置 |
 
 ### Step 2: 复制文件
 
@@ -45,29 +58,43 @@ description: 自动将文件同步到Obsidian知识库，包括复制文件、�
 - **主题**：如"回购增持"、"科技股"、"大宗商品"
 - **事件**：如"胡塞武装禁运"、"V4峰谷定价"
 
-### Step 4: 更新wiki/entities
+### Step 4: 更新 `{知识网络}/entities`
 
-对每个提取的关键词：
+根据 Step 0 确定的目标知识网络（`wiki/`、`wiki-work/` 或 `wiki-reading/`），对每个提取的关键词：
 
-1. 检查 `wiki/entities/{关键词}.md` 是否存在
-2. **存在**：更新frontmatter中的`sources`和`updated`字段，添加新的财经早读引用
+1. 检查 `{知识网络}/entities/{关键词}.md` 是否存在
+2. **存在**：更新frontmatter中的`sources`和`updated`字段，添加新的引用
 3. **不存在**：创建新entity文件，包含：
    - frontmatter（type: entity, created, updated, tags, sources, related）
    - 基本信息
    - 近期动态（从文件内容提取）
 
-### Step 5: 更新wiki/topics
+### Step 5: 更新 `{知识网络}/topics`
 
 对每个提取的主题：
 
-1. 检查 `wiki/topics/{主题}.md` 是否存在
-2. **存在**：更新frontmatter中的`sources`和`updated`字段，添加新的财经早读引用
+1. 检查 `{知识网络}/topics/{主题}.md` 是否存在
+2. **存在**：更新frontmatter中的`sources`和`updated`字段，添加新的引用
 3. **不存在**：创建新topic文件，包含：
    - frontmatter（type: topic, created, updated, tags, sources, related）
    - 概述
    - 关联
 
-### Step 6: 生成更新报告
+### Step 6: 操作后验证（强制）
+
+在生成报告前，**必须**对本次操作的目标知识网络执行自检。验证清单（参考 AGENTS.md 步骤 3.5）：
+
+1. **断链检查** — 本次新建/修改的页面中，所有 `[[wikilink]]` 是否指向已存在页面
+   - 跨域解析：先查当前域，再查其他域
+   - 目标不存在 → 创建该实体/主题页，或去掉 `[[]]`
+2. **Index 同步** — 检查对应域的 index.md 是否包含所有新建页面
+   - 交易 → `wiki/index.md`；工作 → `wiki-work/index.md`；读书 → `wiki-reading/index.md`
+3. **格式合规** — 新建资源文件是否符合标准格式
+4. **Frontmatter** — 新建页面是否含 `type/created/updated/tags`
+
+发现可自动修复的问题 → 立即修复并记录；需人工判断的 → 在报告中标注。
+
+### Step 7: 生成更新报告
 
 输出完成的操作清单：
 - 复制的文件列表
