@@ -79,9 +79,9 @@ User provides 1–5 Amazon competitor ASINs or full product URLs (all same marke
 
 ### Crawling Methodology
 
-**Primary**: Browser automation via playwright (PowerShell/Node.js):
+**Primary**: Browser automation via playwright (Node.js):
 
-```powershell
+```bash
 # If playwright not installed:
 npm init -y  (in a temp dir like {TEMP}/amz-scrape)
 npm install playwright

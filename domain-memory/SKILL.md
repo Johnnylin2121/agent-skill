@@ -290,14 +290,14 @@ dependencies:
 
 ## 创建 Obsidian 目录（首次使用时执行）
 
-```powershell
-$vault = "{VAULT_PATH}"
-$dirs = @(
-    "$vault\交易体系\交易记忆",
-    "$vault\工作\记忆管理\广告记忆",
-    "$vault\工作\记忆管理\Listing记忆",
-    "$vault\工作\记忆管理\选品记忆",
-    "$vault\通用\决策记忆"
+```bash
+vault="{VAULT_PATH}"
+dirs=(
+    "$vault/交易体系/交易记忆"
+    "$vault/工作/记忆管理/广告记忆"
+    "$vault/工作/记忆管理/Listing记忆"
+    "$vault/工作/记忆管理/选品记忆"
+    "$vault/通用/决策记忆"
 )
-foreach ($d in $dirs) { if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force } }
+for d in "${dirs[@]}"; do [ -d "$d" ] || mkdir -p "$d"; done
 ```

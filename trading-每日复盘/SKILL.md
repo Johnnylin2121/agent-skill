@@ -27,9 +27,9 @@ description: A股每日复盘工作流——涵盖盘前观察清单制定、盘
 ### 阶段一：盘前准备（9:00前）
 
 **前置步骤：时间校验**
-```powershell
+```bash
 # 获取当前日期，确认交易日
-Get-Date -Format "yyyy-MM-dd dddd"
+date "+%Y-%m-%d %A"
 # 确认前一交易日、前二交易日日期
 ```
 
@@ -74,12 +74,12 @@ Get-Date -Format "yyyy-MM-dd dddd"
 ```
 
 **数据获取方式**：
-```powershell
+```bash
 # 指数行情
-$url = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&fields=f2,f3,f4,f6,f12,f14&secids=1.000001,1.000300,0.399006,0.399001"
+curl -s "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&fields=f2,f3,f4,f6,f12,f14&secids=1.000001,1.000300,0.399006,0.399001"
 
 # 个股行情
-$stocks = "1.688017,1.601689,0.300718,0.002050"  # 代码前缀：1=沪市,0=深市
+stocks="1.688017,1.601689,0.300718,0.002050"  # 代码前缀：1=沪市,0=深市
 $url = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&fields=f2,f3,f4,f5,f6,f7,f8,f10,f12,f14&secids=$stocks"
 
 # 板块资金流向
@@ -136,9 +136,9 @@ $url = "https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&fltt=2
 ### 阶段三：盘后复盘（15:00后）
 
 **前置步骤：时间校验**
-```powershell
+```bash
 # 获取当前日期，确认今日为交易日
-Get-Date -Format "yyyy-MM-dd dddd"
+date "+%Y-%m-%d %A"
 # 确认前一交易日、前二交易日日期
 # 如前一交易日无复盘文件，继续向前追溯直到找到两个有效复盘文件
 ```
@@ -169,11 +169,11 @@ Get-Date -Format "yyyy-MM-dd dddd"
 
 **复盘后归档检查**：
 创建当日复盘文件后，检查 `交易体系/每日复盘/` 目录，将超过前两个交易日的复盘文件移入 `存档/` 子目录。主目录仅保留今日、前日、前前日三个交易日的复盘文件。
-```powershell
+```bash
 # 获取目录中所有复盘文件，按日期排序
-Get-ChildItem "{VAULT_PATH}\交易体系\每日复盘\*.md" | Sort-Object Name
+ls "{VAULT_PATH}/交易体系/每日复盘/"*.md | sort
 # 将早于前前日的文件移入存档
-Move-Item "{VAULT_PATH}\交易体系\每日复盘\YYYY-MM-DD 每日复盘.md" "{VAULT_PATH}\交易体系\每日复盘\存档\"
+mv "{VAULT_PATH}/交易体系/每日复盘/YYYY-MM-DD 每日复盘.md" "{VAULT_PATH}/交易体系/每日复盘/存档/"
 ```
 
 **复盘文件位置**：
@@ -344,15 +344,21 @@ https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&fields=f62,f184,f12,f14&s
 - 观察清单：搜索页面标题获取
 - 操作策略：搜索页面标题获取
 
-**PowerShell写入方式**（避免ConvertTo-Json编码问题）：
-```powershell
-$json = @{...} | ConvertTo-Json -Depth 10
-[System.IO.File]::WriteAllText("C:\temp\notion.json", $json, [System.Text.UTF8Encoding]::new($false))
-$webclient = New-Object System.Net.WebClient
-$webclient.Headers.Add("Authorization", "Bearer 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")
-$webclient.Headers.Add("Notion-Version", "2022-06-28")
-$webclient.Headers.Add("Content-Type", "application/json")
-$webclient.UploadString("https://api.notion.com/v1/blocks/{block_id}/children", "PATCH", $json)
+**jq + curl 写入方式**（避免 JSON 编码问题）：
+```bash
+# 构建 JSON
+jq -n '{
+  children: [
+    {object: "block", type: "heading_2", heading_2: {rich_text: [{type: "text", text: {content: "{日期} 复盘"}}]}},
+    {object: "block", type: "paragraph", paragraph: {rich_text: [{type: "text", text: {content: "复盘内容..."}}]}}
+  ]
+}' > /tmp/notion_blocks.json
+
+curl -s -X PATCH "https://api.notion.com/v1/blocks/{block_id}/children" \
+  -H "Authorization: Bearer $NOTION_TOKEN" \
+  -H "Notion-Version: 2022-06-28" \
+  -H "Content-Type: application/json" \
+  -d @/tmp/notion_blocks.json
 ```
 
 ---
@@ -425,7 +431,7 @@ $webclient.UploadString("https://api.notion.com/v1/blocks/{block_id}/children", 
 1. **时间混淆**：Notion API返回UTC时间，需+8小时转换为东八区
 2. **早盘验证写错位置**：应写入前日复盘的"今日验证"，不是当日复盘
 3. **图片占位符**：markitdown转换会生成`![](data:image/jpeg;base64...)`，需清理
-4. **JSON编码**：PowerShell的ConvertTo-Json对Notion API会出错，需用UTF-8文件方式
+4. **JSON编码**：使用 `jq` 构建 Notion API 请求体，不要手动拼接 JSON 字符串
 5. **复盘中关联交易计划**：复盘只分析市场，不关联持仓。交易计划的审查在复盘完成后独立进行
 6. **盘中临时修改交易计划**：交易计划一旦制定，盘中只执行不修改。修改只能在盘后审查时进行
 7. **交易计划制定无人工参与**：MiMo可以提醒有介入机会，但交易计划必须经用户确认后才创建

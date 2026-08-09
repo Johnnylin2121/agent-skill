@@ -13,7 +13,7 @@ Ensures implementation plans are not modified during execution without detection
 
 ```bash
 # Compute hash of plan file
-Get-FileHash -Algorithm SHA256 plans/your-plan.md | Select-Object -ExpandProperty Hash
+shasum -a 256 plans/your-plan.md | awk '{print $1}'
 ```
 
 Store the hash in your notes.md or the plan file header:
@@ -27,12 +27,12 @@ Store the hash in your notes.md or the plan file header:
 Re-compute the hash and compare:
 
 ```bash
-$hash = (Get-FileHash -Algorithm SHA256 plans/your-plan.md).Hash
-$attested = "<stored-hash>"
-if ($hash -ne $attested) {
-  Write-Warning "Plan hash mismatch! Plan may have been modified."
+hash=$(shasum -a 256 plans/your-plan.md | awk '{print $1}')
+attested="<stored-hash>"
+if [ "$hash" != "$attested" ]; then
+  echo "WARNING: Plan hash mismatch! Plan may have been modified."
   # Pause and verify with user
-}
+fi
 ```
 
 ### 3. If Mismatch Detected
@@ -49,7 +49,7 @@ if ($hash -ne $attested) {
 
 ## Quick Commands
 
-- **Attest**: `Get-FileHash -Algorithm SHA256 <plan-file>`
+- **Attest**: `shasum -a 256 <plan-file>`
 - **Verify**: Compare stored hash with current hash
 - **Log**: Record hash + timestamp in notes.md
 

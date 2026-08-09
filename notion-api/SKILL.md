@@ -1,6 +1,6 @@
 ---
 name: notion-api
-description: Notion REST API integration for Windows/PowerShell environments. Use when working with Notion pages, databases, or blocks — creating, reading, updating, or searching content. Handles authentication, UTF-8 encoding for Chinese content, and the quirks of PowerShell's JSON handling.
+description: Notion REST API integration for macOS/zsh environments. Use when working with Notion pages, databases, or blocks — creating, reading, updating, or searching content. Handles authentication, UTF-8 encoding for Chinese content, and reliable JSON construction with jq.
 ---
 
 # Notion API Integration
@@ -20,76 +20,83 @@ Notion-Version: 2022-06-28
 Content-Type: application/json
 ```
 
-### Critical PowerShell Encoding Rule
+### Critical JSON Encoding Rule
 
-**Never use PowerShell `ConvertTo-Json` directly for Notion API requests with Chinese content.** It produces malformed JSON.
+**Never manually concatenate JSON strings for Notion API requests with Chinese content.** Use `jq` for reliable, properly-encoded JSON.
 
-**Correct approach**: Write JSON to a UTF-8 file, then use .NET `WebClient`:
+**Correct approach**: Use `jq` to build JSON and `curl` to send:
 
-```powershell
-# 1. Write JSON to file (UTF-8 without BOM)
-$json = @{
-    parent = @{ page_id = "your-page-id" }
-    properties = @{
-        title = @{
-            title = @(@{ text = @{ content = "标题" } })
-        }
-    }
-} | ConvertTo-Json -Depth 10
-[System.IO.File]::WriteAllText("C:\temp\notion_request.json", $json, [System.Text.UTF8Encoding]::new($false))
+```bash
+# 1. Build JSON with jq (properly handles Chinese characters)
+jq -n '{
+  parent: {page_id: "your-page-id"},
+  properties: {
+    title: {title: [{text: {content: "标题"}}]}
+  }
+}' > /tmp/notion_request.json
 
-# 2. Send with WebClient
-$webclient = New-Object System.Net.WebClient
-$webclient.Headers.Add("Authorization", "Bearer ntn_YOUR_TOKEN")
-$webclient.Headers.Add("Notion-Version", "2022-06-28")
-$webclient.Headers.Add("Content-Type", "application/json")
-$response = $webclient.UploadString("https://api.notion.com/v1/pages", "POST", $json)
+# 2. Send with curl
+curl -s -X POST https://api.notion.com/v1/pages \
+  -H "Authorization: Bearer ntn_YOUR_TOKEN" \
+  -H "Notion-Version: 2022-06-28" \
+  -H "Content-Type: application/json" \
+  -d @/tmp/notion_request.json
 ```
 
 ## Common Operations
 
 ### Search Pages
 
-```powershell
-$body = @{ query = "search term"; filter = @{ property = "object"; value = "page" } } | ConvertTo-Json
-# Write to file and send (see encoding rule above)
-POST https://api.notion.com/v1/search
+```bash
+jq -n '{query: "search term", filter: {property: "object", value: "page"}}' > /tmp/notion_search.json
+curl -s -X POST https://api.notion.com/v1/search \
+  -H "Authorization: Bearer $NOTION_TOKEN" \
+  -H "Notion-Version: 2022-06-28" \
+  -H "Content-Type: application/json" \
+  -d @/tmp/notion_search.json
 ```
 
 ### Create Page
 
-```powershell
-$body = @{
-    parent = @{ page_id = "parent-page-id" }
-    properties = @{
-        title = @{
-            title = @(@{ text = @{ content = "Page Title" } })
-        }
+```bash
+jq -n '{
+  parent: {page_id: "parent-page-id"},
+  properties: {
+    title: {title: [{text: {content: "Page Title"}}]}
+  },
+  children: [
+    {
+      object: "block",
+      type: "paragraph",
+      paragraph: {rich_text: [{type: "text", text: {content: "Content here"}}]}
     }
-    children = @(
-        @{
-            object = "block"
-            type = "paragraph"
-            paragraph = @{
-                rich_text = @(@{ type = "text"; text = @{ content = "Content here" } })
-            }
-        }
-    )
-} | ConvertTo-Json -Depth 10
-POST https://api.notion.com/v1/pages
+  ]
+}' > /tmp/notion_create.json
+
+curl -s -X POST https://api.notion.com/v1/pages \
+  -H "Authorization: Bearer $NOTION_TOKEN" \
+  -H "Notion-Version: 2022-06-28" \
+  -H "Content-Type: application/json" \
+  -d @/tmp/notion_create.json
 ```
 
 ### Update Block (Append Children)
 
-```powershell
-PATCH https://api.notion.com/v1/blocks/{block_id}/children
-# Body: same structure as children array above
+```bash
+# Body: JSON array of block objects
+curl -s -X PATCH https://api.notion.com/v1/blocks/{block_id}/children \
+  -H "Authorization: Bearer $NOTION_TOKEN" \
+  -H "Notion-Version: 2022-06-28" \
+  -H "Content-Type: application/json" \
+  -d @/tmp/notion_blocks.json
 ```
 
 ### Get Page Content
 
-```powershell
-GET https://api.notion.com/v1/blocks/{block_id}/children
+```bash
+curl -s https://api.notion.com/v1/blocks/{block_id}/children \
+  -H "Authorization: Bearer $NOTION_TOKEN" \
+  -H "Notion-Version: 2022-06-28"
 ```
 
 ## Block Types Reference
@@ -123,8 +130,8 @@ GET https://api.notion.com/v1/blocks/{block_id}/children
 
 ## Known Gotchas
 
-1. **Chinese encoding**: Always write JSON to UTF-8 file first, never use raw PowerShell JSON
-2. **Depth limit**: `ConvertTo-Json -Depth 10` for nested structures
+1. **Chinese encoding**: Always use `jq` for JSON construction — never manually concatenate JSON strings
+2. **Depth limit**: Use `jq` with `--depth` for deeply nested structures
 3. **Rate limits**: Notion API allows ~3 requests/second
 4. **Block limit**: Max 100 children per `append blocks` call
 5. **Page size**: Max 2000 characters per rich_text block
