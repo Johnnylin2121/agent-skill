@@ -17,14 +17,14 @@ description: >
 
 ## 仓库注册表
 
-| 仓库 | 远程 | 对应本地内容 |
-|------|------|--------------|
-| agent-skill（默认） | `https://github.com/Johnnylin2121/agent-skill.git` | `~/.dsh/skills/` 下的 skill 集合 |
-| dsh-agent | `https://github.com/Johnnylin2121/dsh-agent.git` | dsh 相关 skill + plugins |
+| 仓库 | 远程 | 用途 |
+|------|------|------|
+| **dsh-agent（默认）** | `git@github.com:Johnnylin2121/dsh-agent.git` | **本地 `~/.dsh/skills/` 就是它的 clone**——所有 dsh 适配 skill + push-guard 组件的真源 |
+| agent-skill | `https://github.com/Johnnylin2121/agent-skill.git` | 旧技能集仓库（mimocode 时代），与 dsh-agent 内容部分重复，仅历史参考 |
 | dsh-agent-presets | `https://github.com/Johnnylin2121/dsh-agent-presets.git` | agent preset 配置 |
 
-**规则**：用户未指明仓库时用默认项；推送目标不是默认项时先向用户确认。
-本地 clone 路径以用户当前工作目录 / `git remote -v` 实际结果为准，不写死。
+**规则**：默认操作 dsh-agent（即当前目录本身）；跨仓库操作前先向用户确认。
+**单份真相**：skill 内容只在 dsh-agent 维护，不向 agent-skill 双写（避免漂移）。
 
 ---
 
