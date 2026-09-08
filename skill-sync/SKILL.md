@@ -1,31 +1,45 @@
 ---
 name: skill-sync
 description: >
-  管理本地 skill 与 GitHub 远程仓库的同步。
-  所有平台共用 `main` 分支，平台差异在 skill 内部通过运行时检测处理。
+  管理本地 skill 与 GitHub 远程仓库的同步, 内置 push 前隐私泄露扫描
+  (API key/token/持仓记录/本机路径/PII)。
+  所有平台共用 `main` 分支, 平台差异在 skill 内部通过运行时检测处理。
   当用户说"同步 skill"、"推送到 GitHub"、"skill 更新了吗"、"检查 skill 版本"、
-  "skill-sync"时使用。
+  "安装 push 防护"、"skill-sync"时使用。
 ---
 
 # Skill Sync
 
-管理 `.mimocode/skills/` 目录与 GitHub 远程仓库 `Johnnylin2121/mimocode-skill` 的同步。
-**所有平台共用 `main` 分支。**
+管理本地 skill 目录与 GitHub 远程仓库的同步。
+**所有推送必须先过隐私扫描**（见 Step 3.5），扫描引擎与 git pre-push hook 配套。
 
-**远程仓库**：`git@github.com:Johnnylin2121/mimocode-skill.git`
+---
+
+## 仓库注册表
+
+| 仓库 | 远程 | 对应本地内容 |
+|------|------|--------------|
+| agent-skill（默认） | `https://github.com/Johnnylin2121/agent-skill.git` | `~/.dsh/skills/` 下的 skill 集合 |
+| dsh-agent | `https://github.com/Johnnylin2121/dsh-agent.git` | dsh 相关 skill + plugins |
+| dsh-agent-presets | `https://github.com/Johnnylin2121/dsh-agent-presets.git` | agent preset 配置 |
+
+**规则**：用户未指明仓库时用默认项；推送目标不是默认项时先向用户确认。
+本地 clone 路径以用户当前工作目录 / `git remote -v` 实际结果为准，不写死。
 
 ---
 
 ## 前置检查（每次执行前必须执行）
 
-### Step 0：确认当前分支
+### Step 0：确认当前分支与仓库
 
 ```bash
 cd <repoDir>
 git branch --show-current
+git remote -v
 ```
 
 **规则**：必须为 `main` 分支。如果不是，切换到 `main` 再继续。
+确认 remote 属于上方注册表，避免推错仓库。
 
 ---
 
@@ -66,7 +80,6 @@ git log HEAD..origin/main --oneline   # 远程有但本地没有的提交
 **自动生成提交信息**：根据变更文件自动判断提交类型和描述。
 
 ```bash
-# 获取变更文件列表
 git status --porcelain
 ```
 
@@ -81,16 +94,30 @@ git status --porcelain
 | 新增脚本/参考文件 | `feat: add <skill-name> scripts/references` | `feat: add amazon-listing scripts` |
 | 修改配置文件 | `chore: update config` | `chore: update .gitignore` |
 
-**自动判断逻辑**：
-1. 检查是否有新增目录（`git status --porcelain | grep "^??"`）→ 新增 skill
-2. 检查变更文件所属的 skill 目录 → 更新对应 skill
-3. 检查是否有删除的文件 → 删除 skill
-4. 混合变更 → 使用通用格式
-
 ```bash
 git add -A
 git commit -m "<自动生成的提交信息>"
 ```
+
+### Step 3.5：隐私扫描（必须，不可跳过）
+
+提交后、push 前，运行扫描引擎：
+
+```bash
+pwsh -NoProfile -File "$HOME/.dsh/git-hooks/push-scan.ps1" -Range "origin/main..HEAD"
+```
+
+**结果处理**：
+
+| 结果 | 动作 |
+|------|------|
+| `OK`（exit 0） | 继续 Step 4 |
+| 拦截（exit 1） | **停止流程**。逐条向用户展示命中项，按「处置指引」协助处理：真泄露→脱敏后 amend/新 commit；误报→写入仓库根 `.pushscan-allow`（每行一条正则）后重扫 |
+| 引擎错误（exit 2） | 向用户报告错误，**默认停止**，除非用户明确指示继续 |
+
+**红线**：
+- ❌ 不得自行使用 `git push --no-verify` 绕过 hook；仅当用户明确说"跳过扫描推送"时才可用，且必须复述命中项让用户知情
+- ❌ 扫描命中的内容视为已泄露风险，处理后重新扫描直到干净
 
 ### Step 4：推送到远程
 
@@ -98,7 +125,14 @@ git commit -m "<自动生成的提交信息>"
 git push origin main
 ```
 
-若 push 被拒绝：
+**hook 拦截时**：pre-push hook 会再次扫描（与 Step 3.5 双保险）。被拦截 → 同 Step 3.5 处置。
+
+**DSH 会话内注意**：DSH 沙箱禁止 msys sh 启动，`git push` 可能报
+`couldn't create signal pipe` / `failed to execute prompt script` —— 这是沙箱限制，
+不是 hook 逻辑问题。此时：Step 3.5 已完成的扫描仍然有效，但真正推送需用户在
+**普通终端**执行（hook 在终端正常拦截），或经用户明确确认后 `--no-verify`。
+
+若 push 被拒绝（非拦截类，如 non-fast-forward）：
 - 执行 `git pull origin main` 合并远程更改
 - 再次 `git push origin main`
 - 若仍有冲突，提示用户手动解决
@@ -109,26 +143,44 @@ git push origin main
 
 ---
 
+## 安装 push 防护（一次性）
+
+用户说"安装 push 防护"或 hook 未生效时执行并验证：
+
+```bash
+# 1. 全局 hooksPath（所有仓库生效, 含未来新 clone; $HOME 由 shell 展开, Windows/macOS 通用）
+git config --global core.hooksPath "$HOME/.dsh/git-hooks"
+# 2. 验证
+git config --global --get core.hooksPath   # 应输出 $HOME/.dsh/git-hooks
+Test-Path "$HOME/.dsh/git-hooks/pre-push"  # 应为 True
+Test-Path "$HOME/.dsh/git-hooks/push-scan.ps1"  # 应为 True
+```
+
+**组件**：
+- `~/.dsh/git-hooks/pre-push`：git hook, 从 stdin 读待推送 ref, 调用扫描引擎
+- `~/.dsh/git-hooks/push-scan.ps1`：扫描引擎（gitleaks + 9 条自定义正则）
+- 手动全历史深扫：`pwsh -NoProfile -File ~/.dsh/git-hooks/push-scan.ps1 -Full`
+- 仓库级跳过：`git config pushscan.skip true`（私有仓库用）
+- 误报白名单：仓库根 `.pushscan-allow` 或全局 `~/.dsh/git-hooks/pushscan-allow-global`
+
+**依赖**：gitleaks（winget 装 gitleaks.gitleaks）、rg、pwsh。缺 gitleaks 时引擎自动降级为纯正则。
+
+---
+
 ## 选择性同步
 
-用户可以指定只同步特定 skill，而非全部。
+用户可以指定只同步特定 skill 或特定仓库。
 
 **用法**：
 - "同步 amazon-listing"
-- "只推送到 amazon-ad-analysis"
+- "把 trading-* 推到 dsh-agent"
 - "skill-sync amazon-product-selection"
 
 **执行流程**：
-1. 只 `git add` 指定 skill 目录下的文件
+1. 只 `git add` 指定目录下的文件
 2. 提交信息使用该 skill 名称
-3. 推送到远程
-
-```bash
-# 示例：只同步 amazon-listing
-git add amazon-listing/
-git commit -m "feat: update amazon-listing - <简述>"
-git push origin main
-```
+3. **同样必须过 Step 3.5 扫描**
+4. 推送到远程
 
 ---
 
@@ -145,8 +197,7 @@ git push origin main
 |-------|---------|---------|---------|
 | amazon-ad-analysis | ✅ 已提交 | ✅ 已同步 | 🟢 同步 |
 | amazon-listing | ⚠️ 有变更 | - | 🟡 待同步 |
-| trading-每日复盘 | ✅ 已提交 | ❌ 落后 | 🔴 需推送 |
-| ... | ... | ... | ... |
+| trading-daily-review | ✅ 已提交 | ❌ 落后 | 🔴 需推送 |
 
 **汇总**：
 - 已同步：X 个
@@ -167,27 +218,42 @@ git push origin main
 ## 快捷模式
 
 用户说"同步 skill"且无其他上下文时：
-1. 执行 Step 0（确认分支）
+1. 执行 Step 0（确认分支与仓库）
 2. 执行 Step 1（检测差异）
 3. 若有远程分歧 → Step 2
 4. 若有本地更改 → Step 3
-5. 若有需要推送 → Step 4
-6. 执行 Step 5（确认结果）
+5. **Step 3.5 隐私扫描**
+6. 若有需要推送 → Step 4
+7. 执行 Step 5（确认结果）
+
+---
+
+## 内容脱敏规范（写 skill 文档时遵守）
+
+防止下次推送又夹带隐私：
+
+| 禁止 | 用占位符替代 |
+|------|-------------|
+| 真实持仓/交易记录（价格+动作组合） | `XXXXXX X.XXX 入场`、`某ETF` |
+| Windows 用户名路径（含用户目录的绝对路径） | `%LOCALAPPDATA%\...`、`~/.dsh/...` |
+| 真实 Vault 路径（云同步目录绝对路径） | `{VAULT_PATH}` |
+| 真实 ASIN（B0 开头 10 位产品码） | `B0########` |
+| API key/token 任何形式（含"示例"） | `YOUR_TOKEN`、环境变量引用 |
 
 ---
 
 ## 禁止的操作
 
-- ❌ 禁止使用 `git push --force`
-- ❌ 禁止在 skill 运行时自动提交并推送
-- ❌ 禁止将 `__pycache__`、`.DS_Store`、`Thumbs.db` 等缓存文件提交
-
----
+- ❌ 禁止使用 `git push --force`（历史重写类操作须用户逐条确认后另行执行）
+- ❌ 禁止在 skill 运行时自动提交并推送（每步等用户确认）
+- ❌ 禁止跳过 Step 3.5 隐私扫描
+- ❌ 禁止将 `__pycache__`、`.DS_Store`、`Thumbs.db`、`*.xlsx`、`*.csv` 等数据/缓存文件提交
 
 ## 注意事项
 
 - 不主动删除远程分支或强制推送
 - push 被拒绝时先 pull 再 push，不使用 `--force`
-- 每次操作前先确认当前在 `main` 分支
+- 每次操作前先确认当前在 `main` 分支且 remote 正确
 - 选择性同步时，只提交指定目录的文件
 - 自动生成提交信息时，优先使用具体 skill 名称而非通用格式
+- scanned/blocked 输出中出现的内容本身可能含敏感信息，汇报时注意脱敏
