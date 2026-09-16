@@ -1,5 +1,11 @@
 # MiMoCode Skills
 
+> ⚠️ **本仓库已冻结（2026-09-16）**：真源已迁移到 **`dsh-agent`**（`git@github.com:Johnnylin2121/dsh-agent.git`，本地 `~/.dsh/skills`）。
+> 本仓保留 MiMoCode 时代的旧技能集，**仅作历史对照**：不再更新、不双写。其中 `notion-api`、`cavecrew`、`active-notes`、`goal-drift`、`plan-lock`、`caveman-stats` 因 DSH 无 hook 已弃用；
+> `trading-价值投资功法`、`trading-每日复盘` 已被 dsh-agent 的 `trading-value-investing`、`trading-daily-review` 取代。
+> 新机器请只克隆 dsh-agent；仓库结构见 dsh-agent 的 `REPO-MAP.md`。
+
+
 个人 MiMoCode 技能仓库。**所有平台共用 `main` 分支**，平台差异通过运行时检测处理。
 
 ---
